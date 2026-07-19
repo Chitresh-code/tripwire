@@ -49,3 +49,11 @@ class IngestionSettings(_YamlSettings):
     @classmethod
     def _yaml_filename(cls) -> str:
         return "ingestion.yaml"
+
+
+class PipelineSettings(_YamlSettings):
+    test_fraction: float  # share of the time range held out as the test set
+
+    @classmethod
+    def _yaml_filename(cls) -> str:
+        return "pipeline.yaml"
