@@ -9,7 +9,7 @@ from __future__ import annotations
 import pandas as pd
 
 from src.config import PipelineSettings
-from src.features import amount_features, velocity_features
+from src.features import amount_features, type_features, velocity_features
 
 _settings = PipelineSettings()  # type: ignore[call-arg]  # fields load from configs/pipeline.yaml
 
@@ -17,6 +17,7 @@ _settings = PipelineSettings()  # type: ignore[call-arg]  # fields load from con
 def build_feature_table(transactions: pd.DataFrame) -> pd.DataFrame:
     """Attach every offline feature column to a canonical transactions table."""
     features = amount_features.compute_features(transactions)
+    features = type_features.compute_features(features)
     features = velocity_features.compute_features(features)
     return features
 

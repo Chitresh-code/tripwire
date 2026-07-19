@@ -13,6 +13,7 @@ def _fake_transactions() -> pd.DataFrame:
             "recipient_id": ["X", "Y", "X", "X", "Y"],
             "timestamp": [base + timedelta(hours=h) for h in [0, 1, 2, 3, 4]],
             "amount": [10.0, 600.0, 50.0, 700.0, 20.0],
+            "transaction_type": ["PAYMENT", "TRANSFER", "CASH_OUT", "PAYMENT", "CASH_IN"],
         }
     )
 
@@ -23,6 +24,8 @@ def test_build_feature_table_adds_all_feature_columns():
     assert "is_high_amount" in features.columns
     assert "sender_txn_count_recent" in features.columns
     assert "recipient_txn_count_recent" in features.columns
+    assert "is_transfer" in features.columns
+    assert "is_cash_out" in features.columns
     assert len(features) == 5
 
 

@@ -57,3 +57,28 @@ A running record of real choices made while building Tripwire, and why — updat
 - `src/features/velocity_features.py`'s `TransactionHistory` was generalized (`count_recent(entity_id, timestamp)`) so the same class tracks sender and recipient history as two separate instances, instead of one sender-only implementation.
 - All thresholds/windows stay config-driven (`configs/features.yaml`), with the reasoning behind each value written as comments in that file.
 - Noticed but not yet acted on: fraud rate is ~4x higher in the test split (0.33%) than the train split (0.08%) — the time-based split means train and test come from different weeks, so this could be real drift within the dataset. Worth watching once a model is trained; this is exactly the kind of thing the drift-monitoring milestone (M4) exists to catch.
+
+---
+
+## 2026-07-19 — First baseline model: added the missing signal, dropped class-weighting
+
+**Problem found:** the first LightGBM baseline (trained on `amount`, `is_high_amount`, `sender_txn_count_recent`, `recipient_txn_count_recent`) scored ROC-AUC exactly `0.5000` — no better than random. Root-caused, not guessed at:
+1. `model.predict_proba` was returning a **constant `1.0`** for every test row — `scale_pos_weight` set to the real class-imbalance ratio (~1281:1) was saturating the model's output. Confirmed by testing `scale_pos_weight` at full ratio, √ratio, and LightGBM's `is_unbalance=True` — all three either saturated (`roc_auc≈0.5`) or actively hurt ranking (`sqrt ratio` gave `roc_auc=0.44`, worse than random) on the real data.
+2. Separately, and more importantly: `groupby('type')['isFraud'].mean()` on the raw PaySim data showed fraud is **only ever** `TRANSFER` (0.77%) or `CASH_OUT` (0.18%) — `CASH_IN`, `DEBIT`, `PAYMENT` are exactly 0% fraud, by construction of the PaySim simulator. This is the single strongest signal in the dataset, and none of our features captured it.
+
+**Decision:**
+1. Added a new feature pair, `is_transfer` / `is_cash_out` (`src/features/type_features.py`), following the same online/offline-parity pattern as the other features.
+2. Trained the baseline **without** `scale_pos_weight` or any class-weighting. Tested with the new features added — unweighted training scored ROC-AUC `0.91` / PR-AUC `0.22`, vastly outperforming every weighted variant (`0.5`–`0.67` ROC-AUC).
+
+**Why this deviates from the PRD:** `docs/PRD.md` FR4 calls for a baseline "trained with class-imbalance handling (class weighting or focal loss)." Every class-weighting approach tried made the model measurably worse on real data. Flagging this rather than silently either (a) ignoring the FR6.2 requirement or (b) shipping a worse model to satisfy it on paper. Open follow-up: a more carefully tuned weighted approach (e.g. lower learning rate + moderate weight, or focal loss) might still beat unweighted — not attempted yet, since a first baseline is meant to be a fast, honest first cut, not a fully tuned model.
+
+**Final offline evaluation report** (`scripts/train_baseline.py`, real PaySim data, time-based split):
+
+| Metric | Value |
+| --- | --- |
+| ROC-AUC | 0.9123 |
+| PR-AUC | 0.2240 |
+| Precision @ 50% recall | 0.0556 |
+| Precision @ 80% recall | 0.0203 |
+
+PR-AUC of 0.224 vs. a 0.33% base rate in the test set is roughly a 68x lift over random guessing.
