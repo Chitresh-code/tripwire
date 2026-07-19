@@ -1,5 +1,6 @@
 """Loads settings from configs/*.yaml instead of hardcoding values in code."""
 
+from datetime import datetime
 from pathlib import Path
 from typing import Type
 
@@ -12,9 +13,12 @@ from pydantic_settings import (
 _CONFIGS_DIR = Path(__file__).resolve().parent.parent / "configs"
 
 
-class FeatureSettings(BaseSettings):
-    high_amount_threshold: float
-    velocity_window_minutes: float
+class _YamlSettings(BaseSettings):
+    """Base for settings loaded from a single configs/*.yaml file named after the subclass."""
+
+    @classmethod
+    def _yaml_filename(cls) -> str:
+        raise NotImplementedError
 
     @classmethod
     def settings_customise_sources(
@@ -26,5 +30,22 @@ class FeatureSettings(BaseSettings):
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
         return (
-            YamlConfigSettingsSource(settings_cls, yaml_file=_CONFIGS_DIR / "features.yaml"),
+            YamlConfigSettingsSource(settings_cls, yaml_file=_CONFIGS_DIR / cls._yaml_filename()),
         )
+
+
+class FeatureSettings(_YamlSettings):
+    high_amount_threshold: float
+    velocity_window_minutes: float
+
+    @classmethod
+    def _yaml_filename(cls) -> str:
+        return "features.yaml"
+
+
+class IngestionSettings(_YamlSettings):
+    paysim_epoch: datetime  # arbitrary real-looking start date; PaySim's `step` is hours since this point
+
+    @classmethod
+    def _yaml_filename(cls) -> str:
+        return "ingestion.yaml"
