@@ -1,1 +1,2 @@
 high_amount_threshold: 500.0
+velocity_window_minutes: 60

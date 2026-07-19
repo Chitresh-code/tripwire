@@ -14,6 +14,7 @@ _CONFIGS_DIR = Path(__file__).resolve().parent.parent / "configs"
 
 class FeatureSettings(BaseSettings):
     high_amount_threshold: float
+    velocity_window_minutes: float
 
     @classmethod
     def settings_customise_sources(
