@@ -46,7 +46,7 @@ This project builds a system that makes real-time fraud decisions, monitors its 
 
 ## 5. Data
 
-- **Primary dataset:** IEEE-CIS Fraud Detection (Kaggle) or PaySim synthetic mobile money dataset — both public, large enough to be credible, with realistic imbalance.
+- **Primary dataset:** IEEE-CIS Fraud Detection (Kaggle) — decided 2026-07-19 over PaySim for realism. See `docs/DECISIONS.md`.
 - **Streaming simulation:** replay dataset as a synthetic event stream (configurable events/sec) through Kafka/Redpanda to simulate production traffic.
 - **Label delay simulation:** artificially delay label availability (e.g., 3–14 days) to force a realistic delayed-feedback training design.
 
