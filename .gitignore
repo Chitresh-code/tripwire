@@ -13,6 +13,9 @@ models/registry/*
 # Notebooks checkpoints
 .ipynb_checkpoints/
 
+# Learning notes (local-only, not part of the public repo)
+docs/learning/
+
 # IDE
 .vscode/
 .idea/
