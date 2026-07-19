@@ -1,2 +1,14 @@
-high_amount_threshold: 500.0
-velocity_window_minutes: 60
+# high_amount_threshold: roughly PaySim's 90th percentile transaction amount
+# (median is ~$74,871 in this dataset — a "high" threshold has to be calibrated
+# per dataset, not guessed, or it either fires on everything or nothing).
+high_amount_threshold: 350000.0
+
+# sender_velocity_window_minutes: repeat senders are rare in PaySim (0.15% of
+# accounts) and slow (median ~139h between repeats) — 7 days gives the window
+# a real chance to catch some of them.
+sender_velocity_window_minutes: 10080
+
+# recipient_velocity_window_minutes: repeat recipients are common (16.9% of
+# accounts) and fast (median ~15h between repeats) — 24 hours catches most of
+# that burst behavior without being so wide it never resets.
+recipient_velocity_window_minutes: 1440

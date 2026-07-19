@@ -10,17 +10,19 @@ def _fake_transactions() -> pd.DataFrame:
     return pd.DataFrame(
         {
             "account_id": ["A", "A", "B", "A", "B"],
+            "recipient_id": ["X", "Y", "X", "X", "Y"],
             "timestamp": [base + timedelta(hours=h) for h in [0, 1, 2, 3, 4]],
             "amount": [10.0, 600.0, 50.0, 700.0, 20.0],
         }
     )
 
 
-def test_build_feature_table_adds_both_feature_columns():
+def test_build_feature_table_adds_all_feature_columns():
     features = build_feature_table(_fake_transactions())
 
     assert "is_high_amount" in features.columns
-    assert "txn_count_last_hour" in features.columns
+    assert "sender_txn_count_recent" in features.columns
+    assert "recipient_txn_count_recent" in features.columns
     assert len(features) == 5
 
 

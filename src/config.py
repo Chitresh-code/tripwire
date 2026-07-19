@@ -36,7 +36,8 @@ class _YamlSettings(BaseSettings):
 
 class FeatureSettings(_YamlSettings):
     high_amount_threshold: float
-    velocity_window_minutes: float
+    sender_velocity_window_minutes: float
+    recipient_velocity_window_minutes: float
 
     @classmethod
     def _yaml_filename(cls) -> str:

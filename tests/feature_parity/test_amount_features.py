@@ -4,12 +4,13 @@ from src.features.amount_features import compute_features, is_high_amount, score
 
 
 def test_is_high_amount_boundary():
-    assert is_high_amount(499.99) is False
-    assert is_high_amount(500.0) is True
+    # explicit threshold, so this test doesn't break every time configs/features.yaml is recalibrated
+    assert is_high_amount(499.99, threshold=500.0) is False
+    assert is_high_amount(500.0, threshold=500.0) is True
 
 
 def test_online_and_offline_agree():
-    transactions = [{"amount": 10.0}, {"amount": 500.0}, {"amount": 999.99}]
+    transactions = [{"amount": 10.0}, {"amount": 400_000.0}, {"amount": 999_999.99}]
 
     online_results = [score_transaction(t)["is_high_amount"] for t in transactions]
 

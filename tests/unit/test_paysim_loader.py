@@ -14,8 +14,16 @@ def test_load_paysim_maps_to_canonical_schema(tmp_path):
 
     result = load_paysim(csv_path)
 
-    assert list(result.columns) == ["transaction_id", "account_id", "timestamp", "amount", "is_fraud"]
+    assert list(result.columns) == [
+        "transaction_id",
+        "account_id",
+        "recipient_id",
+        "timestamp",
+        "amount",
+        "is_fraud",
+    ]
     assert result["account_id"].tolist() == ["C1231006815", "C840083671"]
+    assert result["recipient_id"].tolist() == ["M1979787155", "C38997010"]
     assert result["amount"].tolist() == [9839.64, 181.0]
     assert result["is_fraud"].tolist() == [False, True]
     assert result["timestamp"].tolist() == [datetime(2024, 1, 1, 1), datetime(2024, 1, 1, 2)]

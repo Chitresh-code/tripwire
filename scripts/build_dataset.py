@@ -20,8 +20,10 @@ def main() -> None:
     features = build_feature_table(transactions)
     print(f"columns: {list(features.columns)}")
     print(f"is_high_amount rate: {features['is_high_amount'].mean():.4%}")
-    print(f"txn_count_last_hour: mean={features['txn_count_last_hour'].mean():.3f}, "
-          f"max={features['txn_count_last_hour'].max()}")
+    print(f"sender_txn_count_recent: mean={features['sender_txn_count_recent'].mean():.3f}, "
+          f"max={features['sender_txn_count_recent'].max()}")
+    print(f"recipient_txn_count_recent: mean={features['recipient_txn_count_recent'].mean():.3f}, "
+          f"max={features['recipient_txn_count_recent'].max()}")
 
     train, test = time_based_split(features)
     print(f"train: {len(train):,} rows, {train['timestamp'].min()} to {train['timestamp'].max()}, "

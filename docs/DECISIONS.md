@@ -37,3 +37,23 @@ A running record of real choices made while building Tripwire, and why — updat
 - The loader/adapter still needs writing, but mapping is simpler: `nameOrig` → `account_id`, `amount` → `amount` (already named that), `step` → `timestamp` (hour number converted to a real datetime by picking an arbitrary start date and adding `step` hours), `isFraud` → label.
 
 **Note — PaySim is a static file, not a service:** there is no "PaySim API." It's a one-time simulator output (a fixed CSV), used only for offline training and for *our own* streaming-replay script (M3) to feed rows in as if they were live. Production would connect to a real transaction event stream instead — PaySim never appears in a production path.
+
+---
+
+## 2026-07-19 — Recalibrated features against real PaySim statistics
+
+**Problem found:** running the two existing features on the real 6.36M-row file showed both were miscalibrated, invented before we had real data to check against:
+- `is_high_amount` (threshold `$500`) fired on 98.9% of transactions — PaySim amounts are on a much larger scale (median ~$74,871, 90th percentile ~$365,423) than the toy value assumed.
+- `txn_count_last_hour` (sender-side, 60-minute window) was almost always 0 — only 9,298 of 6,353,307 accounts (0.15%) ever send more than once in the entire 31-day dataset.
+
+**Decision:**
+1. Recalibrated `high_amount_threshold` to `350000.0` (~90th percentile of real amounts).
+2. Split the single velocity feature into two: `sender_txn_count_recent` (window widened to 7 days — median gap between a repeat sender's transactions is ~139h) and a new `recipient_txn_count_recent` (window 24h — median gap between a repeat recipient's incoming payments is ~15h; 16.9% of recipients get repeat payments, vs. 0.15% of senders).
+3. Canonical schema gained a `recipient_id` column (from PaySim's `nameDest`), alongside the existing `account_id` (from `nameOrig`).
+
+**Why:** Recipient-side repeat activity is both far more common and faster in this dataset, and matches PaySim's actual fraud pattern (money funneled into an account and cashed out quickly — the "mule account" pattern) better than sender-side velocity alone. Verified on real data: `sender_txn_count_recent` still stays near-zero (max 2) even after widening the window, confirming this is a real property of the dataset, not a bug — while `recipient_txn_count_recent` now shows real variance (mean 1.06, max 91).
+
+**Consequences:**
+- `src/features/velocity_features.py`'s `TransactionHistory` was generalized (`count_recent(entity_id, timestamp)`) so the same class tracks sender and recipient history as two separate instances, instead of one sender-only implementation.
+- All thresholds/windows stay config-driven (`configs/features.yaml`), with the reasoning behind each value written as comments in that file.
+- Noticed but not yet acted on: fraud rate is ~4x higher in the test split (0.33%) than the train split (0.08%) — the time-based split means train and test come from different weeks, so this could be real drift within the dataset. Worth watching once a model is trained; this is exactly the kind of thing the drift-monitoring milestone (M4) exists to catch.
