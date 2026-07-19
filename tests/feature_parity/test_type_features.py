@@ -19,7 +19,10 @@ def test_online_and_offline_agree():
     ]
 
     online_results = [
-        (score_transaction(t["transaction_type"])["is_transfer"], score_transaction(t["transaction_type"])["is_cash_out"])
+        (
+            score_transaction(t["transaction_type"])["is_transfer"],
+            score_transaction(t["transaction_type"])["is_cash_out"],
+        )
         for t in transactions
     ]
 

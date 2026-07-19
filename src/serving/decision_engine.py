@@ -25,7 +25,9 @@ from src.config import DecisionSettings
 _settings = DecisionSettings()  # type: ignore[call-arg]  # fields load from configs/decision.yaml
 
 
-def block_threshold(amount: float, false_positive_cost: float = _settings.false_positive_cost) -> float:
+def block_threshold(
+    amount: float, false_positive_cost: float = _settings.false_positive_cost
+) -> float:
     """Bayes-optimal probability cutoff for blocking a transaction of this amount."""
     return false_positive_cost / (false_positive_cost + amount)
 

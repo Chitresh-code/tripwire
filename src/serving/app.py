@@ -17,6 +17,7 @@ from pathlib import Path
 
 import joblib  # type: ignore[import-untyped]
 import pandas as pd
+import structlog
 from fastapi import FastAPI
 from lightgbm import LGBMClassifier
 from pydantic import BaseModel
@@ -27,6 +28,8 @@ from src.serving import decision_engine
 
 MODEL_PATH = Path("models/registry/baseline_v1.joblib")
 MODEL_VERSION = "baseline_v1"
+
+log = structlog.get_logger()
 
 
 class TransactionRequest(BaseModel):
@@ -55,8 +58,12 @@ def create_app(model: LGBMClassifier | None = None) -> FastAPI:
     # ponytail: process-local history, one instance per process — see
     # velocity_features.TransactionHistory's docstring for the Redis
     # upgrade path once scoring runs on more than one instance.
-    app.state.sender_history = velocity_features.TransactionHistory(velocity_features._SENDER_WINDOW)
-    app.state.recipient_history = velocity_features.TransactionHistory(velocity_features._RECIPIENT_WINDOW)
+    app.state.sender_history = velocity_features.TransactionHistory(
+        velocity_features._SENDER_WINDOW
+    )
+    app.state.recipient_history = velocity_features.TransactionHistory(
+        velocity_features._RECIPIENT_WINDOW
+    )
 
     def get_model() -> LGBMClassifier:
         if app.state.model is None:
@@ -88,6 +95,16 @@ def create_app(model: LGBMClassifier | None = None) -> FastAPI:
         fraud_probability = float(get_model().predict_proba(x)[0][1])
         threshold_used = decision_engine.block_threshold(txn.amount)
         decision = decision_engine.decide(fraud_probability, txn.amount)
+
+        log.info(
+            "scored_transaction",
+            transaction_id=txn.transaction_id,
+            model_version=MODEL_VERSION,
+            features=features,
+            fraud_probability=fraud_probability,
+            decision=decision,
+            threshold_used=threshold_used,
+        )
 
         return ScoreResponse(
             transaction_id=txn.transaction_id,

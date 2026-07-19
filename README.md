@@ -65,7 +65,7 @@ Full diagram and component-level detail in [`docs/ARCHITECTURE.md`](docs/ARCHITE
 | --------- | ------ |
 | M1 — Offline baseline | ✅ Done |
 | M2 — Serving path | ✅ Done |
-| M3 — Streaming + shadow deploy | ⬜ Not started |
+| M3 — Streaming + shadow deploy | 🟡 Streaming done, shadow deploy waits on a second model |
 | M4 — Drift + retraining loop | ⬜ Not started |
 | M5 — Dashboard + write-up | ⬜ Not started |
 

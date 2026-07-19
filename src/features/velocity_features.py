@@ -24,7 +24,9 @@ _SENDER_WINDOW = timedelta(minutes=_settings.sender_velocity_window_minutes)
 _RECIPIENT_WINDOW = timedelta(minutes=_settings.recipient_velocity_window_minutes)
 
 
-def count_in_window(timestamps: Sequence[datetime], current_time: datetime, window: timedelta) -> int:
+def count_in_window(
+    timestamps: Sequence[datetime], current_time: datetime, window: timedelta
+) -> int:
     """How many of `timestamps` fall in the window right before `current_time`."""
     return sum(1 for t in timestamps if current_time - window <= t < current_time)
 
@@ -76,7 +78,9 @@ def compute_features(
     recipient_history = TransactionHistory(recipient_window)
     sender_counts: list[int] = []
     recipient_counts: list[int] = []
-    for account_id, recipient_id, timestamp in zip(out["account_id"], out["recipient_id"], out["timestamp"]):
+    for account_id, recipient_id, timestamp in zip(
+        out["account_id"], out["recipient_id"], out["timestamp"]
+    ):
         sender_counts.append(sender_history.count_recent(account_id, timestamp))
         recipient_counts.append(recipient_history.count_recent(recipient_id, timestamp))
 

@@ -112,3 +112,23 @@ PR-AUC of 0.224 vs. a 0.33% base rate in the test set is roughly a 68x lift over
 **A "review" band was added below the block threshold** (at half of it, `review_band_fraction: 0.5` in config) so borderline cases aren't immediately auto-blocked. This split is an arbitrary, conservative heuristic — not derived from the cost function like the block threshold itself.
 
 **Observed consequence, worth knowing before trusting this in anything real:** PaySim amounts run into the hundreds of thousands to millions, while $10 is tiny by comparison. The formula makes the threshold collapse toward ~0 for any large amount (e.g. `$900,000` → threshold ≈ 0.000011), so almost any transaction above a few thousand dollars gets blocked the moment the model assigns it *any* non-trivial fraud probability — verified live: a $900K TRANSFER with fraud probability 0.011 (barely above the 0.33% base rate) still triggered `block`. This is the formula working correctly, not a bug — but it strongly suggests $10 is too low relative to this dataset's amount scale, and a real false-positive-friction figure from the business would very likely raise it substantially. Revisit `false_positive_cost` the moment a real number exists — nothing else in the decision engine needs to change.
+
+---
+
+## 2026-07-19 — M3 streaming: Redpanda only (not the full stack yet), kafka-python client
+
+**Decision:**
+1. `docker-compose.yml` starts only Redpanda for now — not Redis, Prometheus, or Grafana, even though `AGENTs.md`'s documented `docker compose up -d` command describes starting all four.
+2. Client library: `kafka-python` (pure Python, no native/C dependency, installs cleanly, Redpanda is Kafka-API compatible).
+3. The stream consumer (`src/ingestion/stream_consumer.py`) doesn't score transactions itself — it calls the already-running `/v1/score` HTTP API for each event, reusing the exact same code path as any other caller.
+
+**Why:**
+1. Redis isn't used anywhere yet (the online store is still an in-process dict, see the earlier M2 entry) and Prometheus/Grafana belong to the M5 dashboard milestone — starting them now would be unused infrastructure with nothing to talk to.
+2. No native compiled dependency (unlike `confluent-kafka`, which needs `librdkafka`) — least friction for local dev, matching `CODING_STANDARDS.md` §9's one-line-justification rule for new dependencies.
+3. Keeps `src/ingestion/` and `src/serving/` cleanly separated per the architecture diagram — the consumer is a caller of the scoring API, not a second scoring implementation that could drift from it.
+
+**Consequences:**
+- `docker-compose.yml` will grow (Redis, Prometheus, Grafana) as M4/M5 actually need them — not added preemptively.
+- The demo consumer (`scripts/consume_stream.py`) doesn't set a Kafka consumer group, so re-running it replays the whole topic from the start rather than resuming — fine for local demoing, would need a group ID for a real "don't double-process" consumer.
+
+**Verified end-to-end on real data:** started Redpanda, replayed real PaySim transactions onto the `transactions` topic, ran the consumer against the live `/v1/score` API — structured logs showed real transaction IDs, features, probabilities, decisions, and thresholds for every event, including a live `block` decision on a real high-probability transaction. `tests/integration/test_stream_roundtrip.py` (produce → consume against a real broker) passes when Redpanda is running, and self-skips otherwise so a normal `pytest` run isn't affected.

@@ -20,16 +20,24 @@ def main() -> None:
     features = build_feature_table(transactions)
     print(f"columns: {list(features.columns)}")
     print(f"is_high_amount rate: {features['is_high_amount'].mean():.4%}")
-    print(f"sender_txn_count_recent: mean={features['sender_txn_count_recent'].mean():.3f}, "
-          f"max={features['sender_txn_count_recent'].max()}")
-    print(f"recipient_txn_count_recent: mean={features['recipient_txn_count_recent'].mean():.3f}, "
-          f"max={features['recipient_txn_count_recent'].max()}")
+    print(
+        f"sender_txn_count_recent: mean={features['sender_txn_count_recent'].mean():.3f}, "
+        f"max={features['sender_txn_count_recent'].max()}"
+    )
+    print(
+        f"recipient_txn_count_recent: mean={features['recipient_txn_count_recent'].mean():.3f}, "
+        f"max={features['recipient_txn_count_recent'].max()}"
+    )
 
     train, test = time_based_split(features)
-    print(f"train: {len(train):,} rows, {train['timestamp'].min()} to {train['timestamp'].max()}, "
-          f"fraud rate {train['is_fraud'].mean():.4%}")
-    print(f"test:  {len(test):,} rows, {test['timestamp'].min()} to {test['timestamp'].max()}, "
-          f"fraud rate {test['is_fraud'].mean():.4%}")
+    print(
+        f"train: {len(train):,} rows, {train['timestamp'].min()} to {train['timestamp'].max()}, "
+        f"fraud rate {train['is_fraud'].mean():.4%}"
+    )
+    print(
+        f"test:  {len(test):,} rows, {test['timestamp'].min()} to {test['timestamp'].max()}, "
+        f"fraud rate {test['is_fraud'].mean():.4%}"
+    )
 
 
 if __name__ == "__main__":

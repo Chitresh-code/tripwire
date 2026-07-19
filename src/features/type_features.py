@@ -21,7 +21,10 @@ def is_cash_out(transaction_type: str) -> bool:
 
 def score_transaction(transaction_type: str) -> dict[str, bool]:
     """Online path: compute type features for a single live transaction."""
-    return {"is_transfer": is_transfer(transaction_type), "is_cash_out": is_cash_out(transaction_type)}
+    return {
+        "is_transfer": is_transfer(transaction_type),
+        "is_cash_out": is_cash_out(transaction_type),
+    }
 
 
 def compute_features(transactions: pd.DataFrame) -> pd.DataFrame:

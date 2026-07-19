@@ -42,7 +42,9 @@ def test_online_and_offline_agree():
     offline_df = compute_features(
         pd.DataFrame(transactions), sender_window=sender_window, recipient_window=recipient_window
     )
-    offline_results = list(zip(offline_df["sender_txn_count_recent"], offline_df["recipient_txn_count_recent"]))
+    offline_results = list(
+        zip(offline_df["sender_txn_count_recent"], offline_df["recipient_txn_count_recent"])
+    )
 
     assert online_results == offline_results
     # order: A->X@0min, A->Y@10min, B->X@20min, A->X@90min

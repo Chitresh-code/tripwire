@@ -45,7 +45,9 @@ class FeatureSettings(_YamlSettings):
 
 
 class IngestionSettings(_YamlSettings):
-    paysim_epoch: datetime  # arbitrary real-looking start date; PaySim's `step` is hours since this point
+    paysim_epoch: (
+        datetime  # arbitrary real-looking start date; PaySim's `step` is hours since this point
+    )
 
     @classmethod
     def _yaml_filename(cls) -> str:
@@ -61,7 +63,9 @@ class PipelineSettings(_YamlSettings):
 
 
 class DecisionSettings(_YamlSettings):
-    false_positive_cost: float  # illustrative placeholder, not a real business figure — see docs/DECISIONS.md
+    false_positive_cost: (
+        float  # illustrative placeholder, not a real business figure — see docs/DECISIONS.md
+    )
     review_band_fraction: float  # review threshold = block threshold * this fraction
 
     @classmethod
