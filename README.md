@@ -63,7 +63,7 @@ Full diagram and component-level detail in [`docs/ARCHITECTURE.md`](docs/ARCHITE
 
 | Milestone | Status |
 | --------- | ------ |
-| M1 — Offline baseline | ⬜ Not started |
+| M1 — Offline baseline | ✅ Done |
 | M2 — Serving path | ⬜ Not started |
 | M3 — Streaming + shadow deploy | ⬜ Not started |
 | M4 — Drift + retraining loop | ⬜ Not started |
