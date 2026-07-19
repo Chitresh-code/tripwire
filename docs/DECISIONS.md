@@ -100,3 +100,15 @@ PR-AUC of 0.224 vs. a 0.33% base rate in the test set is roughly a 68x lift over
 - `src/serving/decision_engine.py` (referenced in `AGENTs.md` and `docs/TESTING_STRATEGY.md`) does not exist yet — next real step once cost inputs are available.
 
 **Latency benchmark** (300 sequential local `/v1/score` requests, real trained model, single process): p50 0.82ms, p95 1.04ms, p99 1.35ms, max 3.20ms — well under the PRD's 100ms budget. Expected to grow once the online store moves off-process and under real concurrent load; revisit then.
+
+---
+
+## 2026-07-19 — Cost-based decision threshold: placeholder $ figure, not a business input
+
+**Context — flagging a conflict, per `AGENTs.md`'s own instruction to do so:** `AGENTs.md` explicitly says not to set the cost-based decision threshold or its underlying $ assumptions silently — these are supposed to be real business-supplied figures. Asked; the answer was "I don't have a rough $, add it yourself, then move to M3." That's an explicit instruction, which per `AGENTs.md` wins over the file's own default — but it's flagged here rather than resolved quietly, exactly as `AGENTs.md` asks.
+
+**Decision:** Implemented `src/serving/decision_engine.py` using the standard Bayes-optimal cost-sensitive threshold (Elkan, *"The Foundations of Cost-Sensitive Learning"*, 2001): `p* = C_FP / (C_FP + C_FN)`, with `C_FN` = the transaction's own `amount` (the real $ loss if it's fraud and goes uncaught) and `C_FP` = a fixed cost of wrongly blocking a legitimate transaction. `C_FP` is set to **$10** in `configs/decision.yaml`, chosen as a commonly-cited rough figure for a manual-review/customer-support contact — **not** a number anyone at this business has validated.
+
+**A "review" band was added below the block threshold** (at half of it, `review_band_fraction: 0.5` in config) so borderline cases aren't immediately auto-blocked. This split is an arbitrary, conservative heuristic — not derived from the cost function like the block threshold itself.
+
+**Observed consequence, worth knowing before trusting this in anything real:** PaySim amounts run into the hundreds of thousands to millions, while $10 is tiny by comparison. The formula makes the threshold collapse toward ~0 for any large amount (e.g. `$900,000` → threshold ≈ 0.000011), so almost any transaction above a few thousand dollars gets blocked the moment the model assigns it *any* non-trivial fraud probability — verified live: a $900K TRANSFER with fraud probability 0.011 (barely above the 0.33% base rate) still triggered `block`. This is the formula working correctly, not a bug — but it strongly suggests $10 is too low relative to this dataset's amount scale, and a real false-positive-friction figure from the business would very likely raise it substantially. Revisit `false_positive_cost` the moment a real number exists — nothing else in the decision engine needs to change.

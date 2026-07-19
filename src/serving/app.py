@@ -4,11 +4,9 @@ Reuses the exact same feature functions the offline training pipeline uses
 (src/features/*), so there is only one definition of each feature, not two
 that can drift apart.
 
-No decision/threshold field yet: PRD FR6 requires the allow/review/block
-decision to come from a cost function (expected $ loss from missed fraud vs.
-expected $ friction from a wrongly blocked customer), and AGENTs.md forbids
-setting that logic silently. Returns fraud_probability only until real cost
-inputs are provided — see docs/DECISIONS.md.
+The allow/review/block decision (src/serving/decision_engine.py) is built
+from a cost function per PRD FR6, but its false-positive-cost input is a
+placeholder, not a real business figure — see docs/DECISIONS.md.
 """
 
 from __future__ import annotations
@@ -25,6 +23,7 @@ from pydantic import BaseModel
 
 from src.features import amount_features, type_features, velocity_features
 from src.models.baseline import FEATURE_COLUMNS
+from src.serving import decision_engine
 
 MODEL_PATH = Path("models/registry/baseline_v1.joblib")
 MODEL_VERSION = "baseline_v1"
@@ -42,7 +41,9 @@ class TransactionRequest(BaseModel):
 class ScoreResponse(BaseModel):
     transaction_id: str
     fraud_probability: float
+    decision: str
     model_version: str
+    threshold_used: float
     latency_ms: float
     scored_at: datetime
 
@@ -85,11 +86,15 @@ def create_app(model: LGBMClassifier | None = None) -> FastAPI:
 
         x = pd.DataFrame([{col: features[col] for col in FEATURE_COLUMNS}])
         fraud_probability = float(get_model().predict_proba(x)[0][1])
+        threshold_used = decision_engine.block_threshold(txn.amount)
+        decision = decision_engine.decide(fraud_probability, txn.amount)
 
         return ScoreResponse(
             transaction_id=txn.transaction_id,
             fraud_probability=fraud_probability,
+            decision=decision,
             model_version=MODEL_VERSION,
+            threshold_used=threshold_used,
             latency_ms=(time.perf_counter() - start) * 1000,
             scored_at=datetime.now(timezone.utc),
         )

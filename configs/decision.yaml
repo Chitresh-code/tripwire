@@ -1,0 +1,16 @@
+# Cost-based decision threshold inputs (docs/PRD.md FR6).
+#
+# false_positive_cost is an ILLUSTRATIVE PLACEHOLDER — $10, a commonly-cited
+# ballpark for the cost of a manual review / customer-support contact
+# triggered by wrongly blocking a legitimate transaction. It is NOT a real
+# business figure; no one has validated it against this project's actual
+# costs. Replace it the moment a real number exists. See docs/DECISIONS.md
+# for why this exists at all and how it's used.
+false_positive_cost: 10.0
+
+# The "review" band sits below the cost-optimal block threshold, at this
+# fraction of it, so borderline cases get flagged for review before they'd
+# be auto-blocked. Arbitrary but conservative (errs toward more review, not
+# more blocking) — not derived from the cost function like the block
+# threshold itself.
+review_band_fraction: 0.5

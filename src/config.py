@@ -58,3 +58,12 @@ class PipelineSettings(_YamlSettings):
     @classmethod
     def _yaml_filename(cls) -> str:
         return "pipeline.yaml"
+
+
+class DecisionSettings(_YamlSettings):
+    false_positive_cost: float  # illustrative placeholder, not a real business figure — see docs/DECISIONS.md
+    review_band_fraction: float  # review threshold = block threshold * this fraction
+
+    @classmethod
+    def _yaml_filename(cls) -> str:
+        return "decision.yaml"

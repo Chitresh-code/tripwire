@@ -43,6 +43,8 @@ def test_score_returns_a_probability() -> None:
     assert body["transaction_id"] == "txn_1"
     assert 0.0 <= body["fraud_probability"] <= 1.0
     assert body["model_version"] == "baseline_v1"
+    assert body["decision"] in {"allow", "review", "block"}
+    assert 0.0 <= body["threshold_used"] <= 1.0
 
 
 def test_velocity_state_accumulates_across_requests() -> None:
