@@ -35,3 +35,5 @@ A running record of real choices made while building Tripwire, and why — updat
 - IEEE-CIS's `train_transaction.csv` / `train_identity.csv` were deleted from `data/raw/` (never committed — regenerable by re-downloading if ever needed).
 - `docs/PRD.md` §5 updated to point at PaySim.
 - The loader/adapter still needs writing, but mapping is simpler: `nameOrig` → `account_id`, `amount` → `amount` (already named that), `step` → `timestamp` (hour number converted to a real datetime by picking an arbitrary start date and adding `step` hours), `isFraud` → label.
+
+**Note — PaySim is a static file, not a service:** there is no "PaySim API." It's a one-time simulator output (a fixed CSV), used only for offline training and for *our own* streaming-replay script (M3) to feed rows in as if they were live. Production would connect to a real transaction event stream instead — PaySim never appears in a production path.
