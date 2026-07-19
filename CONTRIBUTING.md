@@ -8,12 +8,13 @@ Tripwire is a personal project, built with the same rigor as a real production r
 2. **Develop:** follow `docs/CODING_STANDARDS.md`. Run `pytest`, `ruff check`, and `mypy --strict` locally before opening a PR.
 3. **Test:** any change to `src/features/` requires a corresponding test in `tests/feature_parity/` (see `docs/TESTING_STRATEGY.md` for why this is non-negotiable).
 4. **Commit messages:** Conventional Commits (`feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`).
-5. **Open a PR** against `main` with:
+5. **Dependencies:** always use `uv add <package>` (or `uv add --dev <package>` for dev-only tools) and `uv remove <package>` to change `pyproject.toml`. Never hand-edit dependency versions — let `uv` resolve and pin the latest compatible version.
+6. **Open a PR** against `main` with:
    - A summary of what changed and why.
    - A link to the relevant PRD/architecture section if this implements a milestone.
    - Before/after benchmark numbers if the change touches the scoring path's latency.
    - Test results, especially for anything touching feature parity, leakage checks, or the decision engine.
-6. **CI must pass** (lint, type-check, unit, feature-parity, leakage tests) before merge.
+7. **CI must pass** (lint, type-check, unit, feature-parity, leakage tests) before merge.
 
 ## Code Review Standards
 
