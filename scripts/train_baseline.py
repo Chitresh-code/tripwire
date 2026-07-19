@@ -1,4 +1,4 @@
-"""Trains the LightGBM baseline on PaySim and prints an offline evaluation report.
+"""Trains the LightGBM baseline on PaySim, evaluates it, and registers it as production.
 
 Run: uv run python scripts/train_baseline.py
 """
@@ -7,33 +7,27 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import joblib  # type: ignore[import-untyped]
-
 from src.ingestion.paysim_loader import load_paysim
-from src.models.baseline import evaluate, train_baseline
-from src.pipelines.build_training_table import build_feature_table, time_based_split
+from src.models import registry
+from src.pipelines.train_and_register import run_training, save_artifacts
 
 RAW_PATH = Path("data/raw/paysim.csv")
-MODEL_PATH = Path("models/registry/baseline_v1.joblib")
+VERSION = "baseline_v1"
 
 
 def main() -> None:
     transactions = load_paysim(RAW_PATH)
-    features = build_feature_table(transactions)
-    train, test = time_based_split(features)
-    print(f"train: {len(train):,} rows (fraud rate {train['is_fraud'].mean():.4%})")
-    print(f"test:  {len(test):,} rows (fraud rate {test['is_fraud'].mean():.4%})")
+    run = run_training(transactions)
 
-    model = train_baseline(train)
-    metrics = evaluate(model, test)
-
+    print(f"train: {len(run.train):,} rows (fraud rate {run.train['is_fraud'].mean():.4%})")
+    print(f"test:  {len(run.test):,} rows (fraud rate {run.test['is_fraud'].mean():.4%})")
     print("\noffline evaluation report (test set, never seen during training):")
-    for name, value in metrics.items():
+    for name, value in run.metrics.items():
         print(f"  {name}: {value:.4f}")
 
-    MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
-    joblib.dump(model, MODEL_PATH)
-    print(f"\nsaved model to {MODEL_PATH}")
+    save_artifacts(run, VERSION)
+    registry.set_production(VERSION)
+    print(f"\nsaved and registered '{VERSION}' as production")
 
 
 if __name__ == "__main__":

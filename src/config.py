@@ -71,3 +71,15 @@ class DecisionSettings(_YamlSettings):
     @classmethod
     def _yaml_filename(cls) -> str:
         return "decision.yaml"
+
+
+class DriftSettings(_YamlSettings):
+    moderate_threshold: float  # PSI: no significant change below this
+    alert_threshold: float  # PSI: significant change at/above this, triggers a retrain
+    bins: int
+    monitored_columns: list[str]
+    max_roc_auc_regression: float  # retraining evaluation gate
+
+    @classmethod
+    def _yaml_filename(cls) -> str:
+        return "drift.yaml"

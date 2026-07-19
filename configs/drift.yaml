@@ -1,0 +1,23 @@
+# Population Stability Index (PSI) thresholds — a standard, published
+# convention from credit-risk modeling, not an invented figure:
+#   PSI < 0.1  -> no significant change
+#   0.1 - 0.25 -> moderate shift, worth watching
+#   >= 0.25    -> significant shift, alert
+moderate_threshold: 0.1
+alert_threshold: 0.25
+
+# Number of reference bins PSI buckets values into (deciles by default).
+bins: 10
+
+# Feature/prediction columns monitored for drift.
+monitored_columns:
+  - amount
+  - sender_txn_count_recent
+  - recipient_txn_count_recent
+  - fraud_probability
+
+# Evaluation gate for automated retraining: a retrained candidate is only
+# promoted over the current production model if its ROC-AUC doesn't drop by
+# more than this much. An engineering tolerance (not a $ business figure),
+# but still a judgment call — adjust if it proves too strict/loose.
+max_roc_auc_regression: 0.01
