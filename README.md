@@ -64,7 +64,7 @@ Full diagram and component-level detail in [`docs/ARCHITECTURE.md`](docs/ARCHITE
 | Milestone | Status |
 | --------- | ------ |
 | M1 — Offline baseline | ✅ Done |
-| M2 — Serving path | ⬜ Not started |
+| M2 — Serving path | ✅ Done |
 | M3 — Streaming + shadow deploy | ⬜ Not started |
 | M4 — Drift + retraining loop | ⬜ Not started |
 | M5 — Dashboard + write-up | ⬜ Not started |
@@ -141,7 +141,7 @@ Uses public datasets only — [IEEE-CIS Fraud Detection](https://www.kaggle.com/
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+Apache 2.0 — see [LICENSE](LICENSE).
 
 ## Author
 
