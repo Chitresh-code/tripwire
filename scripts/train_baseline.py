@@ -7,11 +7,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import joblib  # type: ignore[import-untyped]
+
 from src.ingestion.paysim_loader import load_paysim
 from src.models.baseline import evaluate, train_baseline
 from src.pipelines.build_training_table import build_feature_table, time_based_split
 
 RAW_PATH = Path("data/raw/paysim.csv")
+MODEL_PATH = Path("models/registry/baseline_v1.joblib")
 
 
 def main() -> None:
@@ -27,6 +30,10 @@ def main() -> None:
     print("\noffline evaluation report (test set, never seen during training):")
     for name, value in metrics.items():
         print(f"  {name}: {value:.4f}")
+
+    MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump(model, MODEL_PATH)
+    print(f"\nsaved model to {MODEL_PATH}")
 
 
 if __name__ == "__main__":

@@ -4,6 +4,8 @@ version = "0.1.0"
 description = "Real-time transaction fraud & anomaly detection platform"
 requires-python = ">=3.11"
 dependencies = [
+    "fastapi>=0.139.2",
+    "joblib>=1.5.3",
     "lightgbm>=4.7.0",
     "pandas>=3.0.3",
     "pydantic>=2.13.4",
@@ -11,6 +13,7 @@ dependencies = [
     "pyyaml>=6.0.3",
     "scikit-learn>=1.9.0",
     "structlog>=26.1.0",
+    "uvicorn[standard]>=0.51.0",
 ]
 
 [build-system]
@@ -23,6 +26,7 @@ packages = ["src"]
 [dependency-groups]
 dev = [
     "black>=26.5.1",
+    "httpx>=0.28.1",
     "mypy>=2.3.0",
     "pandas-stubs>=3.0.3.260530",
     "pytest>=9.1.1",
