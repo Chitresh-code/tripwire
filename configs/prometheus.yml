@@ -1,0 +1,6 @@
+scrape_configs:
+  - job_name: tripwire-scoring-api
+    scrape_interval: 5s
+    static_configs:
+      # host.docker.internal: the API runs on the host (uvicorn), not in a container.
+      - targets: ["host.docker.internal:8000"]

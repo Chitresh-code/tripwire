@@ -1,0 +1,62 @@
+{
+  "title": "Tripwire — Scoring API",
+  "uid": "tripwire",
+  "timezone": "browser",
+  "refresh": "5s",
+  "time": { "from": "now-30m", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Scoring latency (p50/p95/p99)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        { "expr": "histogram_quantile(0.5, sum(rate(scoring_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p50" },
+        { "expr": "histogram_quantile(0.95, sum(rate(scoring_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p95" },
+        { "expr": "histogram_quantile(0.99, sum(rate(scoring_latency_seconds_bucket[5m])) by (le))", "legendFormat": "p99" }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Throughput (requests/sec) by decision",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        { "expr": "sum(rate(scoring_decisions_total[5m])) by (decision)", "legendFormat": "{{decision}}" }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Fraud probability distribution",
+      "type": "heatmap",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        { "expr": "sum(rate(fraud_probability_bucket[5m])) by (le)", "format": "heatmap", "legendFormat": "{{le}}" }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Drift (PSI) per monitored feature",
+      "description": "0.1 = moderate, 0.25 = alert — see configs/drift.yaml. Updated once per scripts/check_drift.py run, not continuously.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.1 },
+              { "color": "red", "value": 0.25 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        { "expr": "drift_psi", "legendFormat": "{{column}}" }
+      ]
+    }
+  ]
+}

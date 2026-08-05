@@ -24,13 +24,15 @@ from datetime import datetime, timezone
 import joblib  # type: ignore[import-untyped]
 import pandas as pd
 import structlog
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from lightgbm import LGBMClassifier
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel
 
 from src.features import amount_features, type_features, velocity_features
 from src.models import registry
 from src.models.baseline import FEATURE_COLUMNS
+from src.monitoring import metrics
 from src.serving import decision_engine
 
 log = structlog.get_logger()
@@ -98,6 +100,11 @@ def create_app(model: LGBMClassifier | None = None, version: str | None = None) 
             "shadow_version": registry.get_shadow() or "none",
         }
 
+    @app.get("/metrics")
+    def prometheus_metrics() -> Response:
+        metrics.refresh_drift_gauges()
+        return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
     @app.post("/v1/score", response_model=ScoreResponse)
     def score(txn: TransactionRequest) -> ScoreResponse:
         start = time.perf_counter()
@@ -122,6 +129,9 @@ def create_app(model: LGBMClassifier | None = None, version: str | None = None) 
         threshold_used = decision_engine.block_threshold(txn.amount)
         decision = decision_engine.decide(fraud_probability, txn.amount)
 
+        metrics.SCORING_DECISIONS.labels(decision=decision).inc()
+        metrics.FRAUD_PROBABILITY.observe(fraud_probability)
+
         log.info(
             "scored_transaction",
             transaction_id=txn.transaction_id,
@@ -144,13 +154,16 @@ def create_app(model: LGBMClassifier | None = None, version: str | None = None) 
                 production_fraud_probability=fraud_probability,
             )
 
+        latency_ms = (time.perf_counter() - start) * 1000
+        metrics.SCORING_LATENCY.observe(latency_ms / 1000)
+
         return ScoreResponse(
             transaction_id=txn.transaction_id,
             fraud_probability=fraud_probability,
             decision=decision,
             model_version=model_version,
             threshold_used=threshold_used,
-            latency_ms=(time.perf_counter() - start) * 1000,
+            latency_ms=latency_ms,
             scored_at=datetime.now(timezone.utc),
         )
 

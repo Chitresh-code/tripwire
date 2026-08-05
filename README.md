@@ -67,7 +67,7 @@ Full diagram and component-level detail in [`docs/ARCHITECTURE.md`](docs/ARCHITE
 | M2 — Serving path | ✅ Done |
 | M3 — Streaming + shadow deploy | ✅ Done |
 | M4 — Drift + retraining loop | ✅ Done |
-| M5 — Dashboard + write-up | ⬜ Not started |
+| M5 — Dashboard + write-up | ✅ Done |
 
 ## Getting Started
 

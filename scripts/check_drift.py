@@ -22,6 +22,7 @@ from src.config import DriftSettings
 from src.ingestion.paysim_loader import load_paysim
 from src.models import registry
 from src.models.baseline import FEATURE_COLUMNS
+from src.monitoring import metrics
 from src.monitoring.drift import check_drift, load_references
 from src.monitoring.synthetic_drift import inject_amount_spike
 from src.pipelines.build_training_table import build_feature_table, time_based_split
@@ -57,6 +58,7 @@ def main() -> None:
     )[:, 1]
 
     results = check_drift(references, current)
+    metrics.record_drift_status(results)
     alerted_columns = []
     for column, (psi, status) in results.items():
         log.info("drift_check", column=column, psi=round(psi, 4), status=status)
