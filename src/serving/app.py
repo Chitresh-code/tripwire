@@ -34,6 +34,7 @@ from src.models import registry
 from src.models.baseline import FEATURE_COLUMNS
 from src.monitoring import metrics
 from src.serving import decision_engine
+from src.serving.explain import top_contributing_features
 
 log = structlog.get_logger()
 
@@ -47,12 +48,18 @@ class TransactionRequest(BaseModel):
     transaction_type: str
 
 
+class FeatureContribution(BaseModel):
+    feature: str
+    contribution: float  # signed SHAP value: positive pushes toward fraud, negative away
+
+
 class ScoreResponse(BaseModel):
     transaction_id: str
     fraud_probability: float
     decision: str
     model_version: str
     threshold_used: float
+    top_contributing_features: list[FeatureContribution]
     latency_ms: float
     scored_at: datetime
 
@@ -128,6 +135,7 @@ def create_app(model: LGBMClassifier | None = None, version: str | None = None) 
         fraud_probability = float(model.predict_proba(x)[0][1])
         threshold_used = decision_engine.block_threshold(txn.amount)
         decision = decision_engine.decide(fraud_probability, txn.amount)
+        top_features = top_contributing_features(model, x, FEATURE_COLUMNS)
 
         metrics.SCORING_DECISIONS.labels(decision=decision).inc()
         metrics.FRAUD_PROBABILITY.observe(fraud_probability)
@@ -140,6 +148,7 @@ def create_app(model: LGBMClassifier | None = None, version: str | None = None) 
             fraud_probability=fraud_probability,
             decision=decision,
             threshold_used=threshold_used,
+            top_features=top_features,
         )
 
         shadow = get_shadow_model()
@@ -163,6 +172,10 @@ def create_app(model: LGBMClassifier | None = None, version: str | None = None) 
             decision=decision,
             model_version=model_version,
             threshold_used=threshold_used,
+            top_contributing_features=[
+                FeatureContribution(feature=name, contribution=value)
+                for name, value in top_features
+            ],
             latency_ms=latency_ms,
             scored_at=datetime.now(timezone.utc),
         )

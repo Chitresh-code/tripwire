@@ -47,6 +47,8 @@ def test_score_returns_a_probability() -> None:
     assert body["model_version"] == "test_model"
     assert body["decision"] in {"allow", "review", "block"}
     assert 0.0 <= body["threshold_used"] <= 1.0
+    assert 1 <= len(body["top_contributing_features"]) <= 3
+    assert {"feature", "contribution"} <= body["top_contributing_features"][0].keys()
 
 
 def test_velocity_state_accumulates_across_requests() -> None:

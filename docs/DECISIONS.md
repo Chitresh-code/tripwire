@@ -166,3 +166,21 @@ PR-AUC of 0.224 vs. a 0.33% base rate in the test set is roughly a 68x lift over
 **What's skipped:** the 4th panel, "rolling precision/recall proxy updated as delayed labels arrive" (FR13), and the underlying delayed-feedback labeling loop (FR12) it depends on. `docs/PRD.md` §10 left FR12 as an explicit open question ("simple offline-simulated version vs. true delayed simulation — decide based on time budget") and it was never resolved or built in M1–M4 — there is no live label feed in this project to compute rolling precision/recall against. Building the dashboard panel without that underlying loop would mean faking the numbers, which this project has consistently avoided (see the M4 entries above on real vs. synthetic drift).
 
 **Consequence:** FR12/FR13's label-feedback half remains explicitly open, not silently dropped. If it gets built later, the 4th panel is additive to the existing dashboard, not a rework.
+
+---
+
+## 2026-08-05 — M6–M10 added to the roadmap: mapping the rest of the PRD's FRs
+
+**Flagging per `AGENTs.md`:** this edits `docs/PRD.md` §9 (Milestones). Not a scope change — no FR was added, removed, or reworded, and §3 (Non-Goals) is untouched — just scheduling FRs that §6 already defined but that M1–M5 never picked up: FR7 (explainability), FR5 (sequence model), FR12 (delayed-feedback loop), FR9 (canary rollout), plus the Goals/Evaluation-Plan-promised rules-only baseline comparison that had no FR number of its own. Requested by the user after M5 wrapped, explicitly asking for "the full PRD scope mapped in a roadmap."
+
+**Decision:** M6 (explainability) → M7 (rules-only baseline) → M8 (sequence model) → M9 (delayed-feedback loop) → M10 (canary rollout), in that order — smallest/most self-contained first, canary last since it was already flagged in the M3 entry above as needing infrastructure this project doesn't have yet and may stay out of scope given §3's single-node non-goal.
+
+---
+
+## 2026-08-05 — M6: explainability via LightGBM's built-in SHAP, no new dependency
+
+**Decision:** `src/serving/explain.py` computes per-decision feature attribution using `LGBMClassifier.predict(x, pred_contrib=True)` — LightGBM's native SHAP-value computation for tree models — instead of adding the separate `shap` package FR7 suggests. `/v1/score` now returns `top_contributing_features`: the 3 features with the largest |contribution| for that specific prediction, matching the shape already speculatively documented in `docs/API_SPEC.md`.
+
+**Why:** the model library already computes exact SHAP values natively; a second dependency would duplicate functionality already installed (`CODING_STANDARDS.md` §9's justification bar isn't met when the existing stack already solves it).
+
+**Latency impact (flagged per `AGENTs.md` — this touches the scoring path):** benchmarked 300 sequential local `/v1/score` requests before/after. Before (M2 baseline, no explainability): p50 0.82ms, p95 1.04ms, p99 1.35ms, max 3.20ms. After: p50 1.10ms, p95 1.32ms, p99 2.85ms, max 15.04ms (one cold-start-ish outlier). The extra `pred_contrib` call roughly doubles per-request cost but stays ~35x under the PRD's 100ms p99 budget.

@@ -47,8 +47,8 @@ Scores a single transaction for fraud risk and returns a decision.
   "model_version": "gbt_v2.3.1",
   "threshold_used": 0.087,
   "top_contributing_features": [
-    {"feature": "card_txn_count_10m", "contribution": 0.021},
-    {"feature": "merchant_avg_amount_7d", "contribution": -0.008}
+    {"feature": "recipient_txn_count_recent", "contribution": 700.36},
+    {"feature": "amount", "contribution": -181.54}
   ],
   "latency_ms": 42,
   "scored_at": "2026-07-19T14:32:01.087Z"
