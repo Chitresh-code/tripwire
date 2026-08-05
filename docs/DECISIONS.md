@@ -184,3 +184,20 @@ PR-AUC of 0.224 vs. a 0.33% base rate in the test set is roughly a 68x lift over
 **Why:** the model library already computes exact SHAP values natively; a second dependency would duplicate functionality already installed (`CODING_STANDARDS.md` §9's justification bar isn't met when the existing stack already solves it).
 
 **Latency impact (flagged per `AGENTs.md` — this touches the scoring path):** benchmarked 300 sequential local `/v1/score` requests before/after. Before (M2 baseline, no explainability): p50 0.82ms, p95 1.04ms, p99 1.35ms, max 3.20ms. After: p50 1.10ms, p95 1.32ms, p99 2.85ms, max 15.04ms (one cold-start-ish outlier). The extra `pred_contrib` call roughly doubles per-request cost but stays ~35x under the PRD's 100ms p99 budget.
+
+---
+
+## 2026-08-05 — M7: rules-only baseline finally measured, GBT justified
+
+**Decision:** `src/models/rules_baseline.py`'s `RulesOnlyModel` flags a transaction as fraud when it's a large TRANSFER or CASH_OUT — reusing the exact `is_high_amount`/`is_transfer`/`is_cash_out` features the GBT trains on (not a strawman with weaker inputs), and duck-typing `.predict_proba` so `src/models/baseline.py`'s existing `evaluate()` scores both models identically. `scripts/compare_baselines.py` runs both on the same time-based test split.
+
+**Real result** (test set, 1,293,523 rows, 0.329% fraud rate):
+
+| metric | rules-only | GBT |
+|---|---|---|
+| roc_auc | 0.7392 | 0.9123 |
+| pr_auc | 0.0137 | 0.2240 |
+| precision_at_recall_50 | 0.0219 | 0.0556 |
+| precision_at_recall_80 | 0.0033 | 0.0203 |
+
+GBT wins on every metric — 2.5x on PR-AUC, 6-16x on precision at fixed recall. This is the measurement the PRD's Goals table (§2, "beats a rules-only baseline by a defined margin") promised but M1 never actually took — it only ever compared the GBT against itself across drift/retrain cycles. Closes that gap honestly, with a real number instead of an assumption.
