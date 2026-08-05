@@ -201,3 +201,34 @@ PR-AUC of 0.224 vs. a 0.33% base rate in the test set is roughly a 68x lift over
 | precision_at_recall_80 | 0.0033 | 0.0203 |
 
 GBT wins on every metric — 2.5x on PR-AUC, 6-16x on precision at fixed recall. This is the measurement the PRD's Goals table (§2, "beats a rules-only baseline by a defined margin") promised but M1 never actually took — it only ever compared the GBT against itself across drift/retrain cycles. Closes that gap honestly, with a real number instead of an assumption.
+
+---
+
+## 2026-08-05 — M8: sequence model built (full online+offline, per explicit user instruction), doesn't beat GBT — reported honestly
+
+User was asked directly whether M8 should be offline-only (train/compare only) or full online+offline (also served live), since a live sequence model needs a real online-store redesign — `velocity_features.TransactionHistory` only tracks rolling *counts*, not actual transaction history, and FR5's sequence model needs the latter. User chose full online+offline.
+
+**Online store (`src/features/sequence_features.py`):** `TransactionSequenceStore` remembers, per account, its last 5 transactions (`configs/sequence.yaml`) as small per-step vectors (`log1p(amount)`, `is_high_amount`, `is_transfer`, `is_cash_out` — reusing `amount_features`/`type_features`, not reinventing them), zero-padded, oldest-first. Only *prior* transactions are ever included, never the current one, so there's no leakage. Feature-parity tested (`tests/feature_parity/test_sequence_features.py`) the same way every other feature in this codebase is.
+
+**Model (`src/models/sequence_model.py`):** a small GRU (hidden_size=16) over the 5-step sequence, PyTorch (`uv add torch` — justified: FR5 explicitly asks for a "transformer or GRU," no existing dependency covers that).
+
+**Real finding #1 — a genuine crash, not a flake:** training LightGBM (GBT) and PyTorch (GRU) in the same process, under the real ~6.3M-row PaySim training load, reliably segfaults. Small/synthetic data never reproduced it — only the full run did, consistently, across two separate attempts. The macOS crash report's faulting thread was inside libomp's own `__kmp_fork_barrier`/`__kmp_suspend_initialize_thread` — i.e., thread-pool corruption between LightGBM's and PyTorch's separately-bundled OpenMP runtimes, not application code. `os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"` (the standard fix for the simpler "duplicate same runtime" case) plus `torch.set_num_threads(1)` reduced the frequency but did **not** eliminate the crash under real load — confirmed by a second full-scale attempt that crashed again with the identical signature. The actual fix was process isolation: `scripts/train_sequence_model.py` trains the GRU in a dedicated subprocess (never importing `src.models.baseline`/LightGBM), and `scripts/compare_baselines.py` invokes it via `subprocess.run` rather than importing it directly — the two libraries are simply never both doing heavy work in one OS process during training. Two full runs since have completed cleanly.
+
+Live serving (`src/serving/app.py`) *does* load both libraries in one long-running process (production GBT + shadow GBT + sequence GRU), since inference is much lighter-weight than training. Verified directly: started the server, scored real requests, ran the standard 300-request latency benchmark — no crash, process stayed alive throughout.
+
+**Real finding #2 — the model itself doesn't work, and the reason is well understood, not mysterious:** first attempt (unweighted `BCEWithLogitsLoss`) collapsed to predicting "not fraud" for everything — training loss dropped to ~0.0066 while ROC-AUC sat at 0.4999 (chance). This is the textbook signature of unweighted binary cross-entropy on severe imbalance (0.329% fraud): gradient signal from the tiny positive class gets drowned out by the overwhelming majority class. Added `pos_weight` (the standard remedy for gradient-descent-trained models under class imbalance) and reran on the full dataset — this time the model collapsed the *other* way, predicting a constant ~0.5 for everything (ROC-AUC 0.5000, loss flat at ~1.386 ≈ the exact value you'd get from a constant-0.5 output under that pos_weight). Both failure modes are real, both were run on the full dataset, neither was a fluke of a quick test.
+
+**Note the direction flip vs. the GBT baseline:** `src/models/baseline.py`'s `train_baseline` docstring already documents that weighting (scale_pos_weight, full ratio and its square root) *hurt* LightGBM on this exact imbalance — unweighted was the winner there. For the GRU, unweighted is what failed first, and weighting didn't fix it either. Boosting and gradient-descent-over-minibatches respond to severe imbalance in genuinely different, model-family-specific ways; there's no one universal fix, which is exactly why this needed real testing rather than assuming either model family's remedy would transfer to the other.
+
+**Result — honest, per PRD §10's explicit allowance** ("sequence model may not meaningfully beat GBT baseline — acceptable outcome if honestly reported with analysis of why"):
+
+| metric | rules-only | GBT | sequence (GRU) |
+|---|---|---|---|
+| roc_auc | 0.7392 | 0.9010 | 0.5000 |
+| pr_auc | 0.0137 | 0.1412 | 0.0033 |
+| precision_at_recall_50 | 0.0219 | 0.0516 | 0.0033 |
+| precision_at_recall_80 | 0.0033 | 0.0186 | 0.0033 |
+
+The sequence model does not beat the GBT baseline — it doesn't beat the rules-only heuristic either, landing at chance level. Plausible contributing factor beyond the imbalance issue above: PaySim sequences are short (`configs/features.yaml`'s velocity comment already established repeat senders are rare, 0.15% of accounts), so most training sequences are almost entirely zero-padding — there may simply not be enough real sequential signal in this dataset for a sequence model to find, independent of the training-imbalance problem. `models/registry/sequence_model.pt` is still wired into live serving (shadow-style, logged, never affecting decisions) per the user's explicit choice, so the plumbing is proven end-to-end even though this particular trained model isn't useful yet.
+
+**Latency impact (flagged per `AGENTs.md`):** 300-request benchmark with both GBT and GRU scoring live: p50 1.43ms, p95 1.78ms, p99 2.50ms, max 6.73ms — comparable to M6's explainability-only benchmark (p99 2.85ms), still ~40x under the PRD's 100ms budget.

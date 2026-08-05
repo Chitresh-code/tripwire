@@ -27,6 +27,13 @@ def drift_reference_path(version: str) -> Path:
     return REGISTRY_DIR / f"{version}_drift_reference.json"
 
 
+# The sequence model (src/models/sequence_model.py) isn't part of the
+# production/shadow promotion scheme above — there's only ever one of it, a
+# comparison + live-logging model, not something ever promoted to production.
+SEQUENCE_MODEL_PATH = REGISTRY_DIR / "sequence_model.pt"
+SEQUENCE_METRICS_PATH = REGISTRY_DIR / "sequence_model_metrics.json"
+
+
 def _read_pointers() -> dict[str, str]:
     if not POINTERS_PATH.exists():
         return {}

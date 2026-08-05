@@ -14,6 +14,11 @@ evaluation gate), every request is also scored by it and logged — silently,
 never affecting the response. A human promotes shadow -> production with
 scripts/promote_shadow.py after reviewing it; nothing here does that
 automatically.
+
+Sequence model (PRD FR5): if scripts/compare_baselines.py has saved one
+(models/registry/sequence_model.pt), every request is also scored by it and
+logged the same shadow-style way — it's a comparison model against the GBT
+baseline, never a candidate for production.
 """
 
 from __future__ import annotations
@@ -29,8 +34,9 @@ from lightgbm import LGBMClassifier
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel
 
-from src.features import amount_features, type_features, velocity_features
+from src.features import amount_features, sequence_features, type_features, velocity_features
 from src.models import registry
+from src.models import sequence_model as sequence_model_module
 from src.models.baseline import FEATURE_COLUMNS
 from src.monitoring import metrics
 from src.serving import decision_engine
@@ -71,6 +77,8 @@ def create_app(model: LGBMClassifier | None = None, version: str | None = None) 
     app.state.model_version = version
     app.state.shadow_model = None
     app.state.shadow_version = None
+    app.state.sequence_model = None
+    app.state.sequence_store = sequence_features.TransactionSequenceStore()
     # ponytail: process-local history, one instance per process — see
     # velocity_features.TransactionHistory's docstring for the Redis
     # upgrade path once scoring runs on more than one instance.
@@ -98,6 +106,16 @@ def create_app(model: LGBMClassifier | None = None, version: str | None = None) 
             app.state.shadow_model = joblib.load(registry.model_path(shadow_version))
             app.state.shadow_version = shadow_version
         return app.state.shadow_model, app.state.shadow_version
+
+    def get_sequence_model() -> sequence_model_module.SequenceGRU | None:
+        if not registry.SEQUENCE_MODEL_PATH.exists():
+            return None
+        if app.state.sequence_model is None:
+            app.state.sequence_model = sequence_model_module.load_sequence_model(
+                str(registry.SEQUENCE_MODEL_PATH)
+            )
+        model: sequence_model_module.SequenceGRU = app.state.sequence_model
+        return model
 
     @app.get("/v1/health")
     def health() -> dict[str, str]:
@@ -160,6 +178,25 @@ def create_app(model: LGBMClassifier | None = None, version: str | None = None) 
                 transaction_id=txn.transaction_id,
                 shadow_version=shadow_version,
                 shadow_fraud_probability=shadow_probability,
+                production_fraud_probability=fraud_probability,
+            )
+
+        sequence_row = pd.DataFrame(
+            [
+                sequence_features.score_transaction(
+                    app.state.sequence_store, txn.account_id, txn.amount, txn.transaction_type
+                )
+            ]
+        )
+        gru = get_sequence_model()
+        if gru is not None:
+            sequence_probability = float(
+                sequence_model_module.predict_proba(gru, sequence_row)[0][1]
+            )
+            log.info(
+                "sequence_scored",
+                transaction_id=txn.transaction_id,
+                sequence_fraud_probability=sequence_probability,
                 production_fraud_probability=fraud_probability,
             )
 

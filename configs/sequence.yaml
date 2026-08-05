@@ -1,0 +1,6 @@
+# sequence_length: how many of an account's most recent prior transactions
+# feed the sequence model. 5 balances context against how sparse repeat
+# senders are in PaySim (see configs/features.yaml's velocity comment) —
+# most accounts won't have 5 priors, so shorter windows would waste even
+# more of the sequence on padding.
+sequence_length: 5

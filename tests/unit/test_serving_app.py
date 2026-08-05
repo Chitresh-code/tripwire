@@ -1,12 +1,15 @@
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
 from src.models.baseline import train_baseline
+from src.models.sequence_model import train_sequence_model
 from src.serving import app as app_module
 from src.serving.app import create_app
 from tests.unit.test_baseline import _learnable_dataset
+from tests.unit.test_sequence_model import _learnable_sequence_dataset
 
 
 def _app_and_client() -> tuple:
@@ -70,6 +73,24 @@ def test_shadow_model_is_scored_but_doesnt_change_the_response(
 
     monkeypatch.setattr(app_module.registry, "get_shadow", lambda: "shadow_v1")
     monkeypatch.setattr(app_module.joblib, "load", lambda path: shadow_model)
+
+    response = client.post("/v1/score", json=_payload())
+
+    assert response.status_code == 200
+    assert response.json()["model_version"] == "test_model"
+
+
+def test_sequence_model_is_scored_but_doesnt_change_the_response(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Sequence model (FR5): scores silently alongside production, never in the response."""
+    app, client = _app_and_client()
+    fake_artifact = tmp_path / "sequence_model.pt"
+    fake_artifact.touch()
+    gru = train_sequence_model(_learnable_sequence_dataset(n=50), epochs=1, batch_size=32)
+
+    monkeypatch.setattr(app_module.registry, "SEQUENCE_MODEL_PATH", fake_artifact)
+    monkeypatch.setattr(app_module.sequence_model_module, "load_sequence_model", lambda path: gru)
 
     response = client.post("/v1/score", json=_payload())
 

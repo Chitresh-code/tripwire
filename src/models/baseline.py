@@ -52,15 +52,21 @@ def precision_at_recall(y_true: pd.Series, y_score: np.ndarray, target_recall: f
     return float(achievable.max()) if len(achievable) else 0.0
 
 
+def evaluate_scores(y_true: pd.Series, y_score: np.ndarray) -> dict[str, float]:
+    """Shared metrics report given any model's predicted scores — GBT, rules-only, or
+    the sequence model (src/models/sequence_model.py) all funnel through this, so every
+    model in the eval report is judged the same way."""
+    return {
+        "roc_auc": roc_auc_score(y_true, y_score),
+        "pr_auc": average_precision_score(y_true, y_score),
+        "precision_at_recall_50": precision_at_recall(y_true, y_score, 0.5),
+        "precision_at_recall_80": precision_at_recall(y_true, y_score, 0.8),
+    }
+
+
 def evaluate(model: LGBMClassifier, test: pd.DataFrame) -> dict[str, float]:
     """Offline evaluation report: ranking quality + precision at fixed recall levels."""
     x = test[FEATURE_COLUMNS]
     y = test[LABEL_COLUMN]
     y_score = np.asarray(model.predict_proba(x))[:, 1]
-
-    return {
-        "roc_auc": roc_auc_score(y, y_score),
-        "pr_auc": average_precision_score(y, y_score),
-        "precision_at_recall_50": precision_at_recall(y, y_score, 0.5),
-        "precision_at_recall_80": precision_at_recall(y, y_score, 0.8),
-    }
+    return evaluate_scores(y, y_score)

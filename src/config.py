@@ -73,6 +73,14 @@ class DecisionSettings(_YamlSettings):
         return "decision.yaml"
 
 
+class SequenceSettings(_YamlSettings):
+    sequence_length: int  # how many prior transactions feed the sequence model
+
+    @classmethod
+    def _yaml_filename(cls) -> str:
+        return "sequence.yaml"
+
+
 class DriftSettings(_YamlSettings):
     moderate_threshold: float  # PSI: no significant change below this
     alert_threshold: float  # PSI: significant change at/above this, triggers a retrain
