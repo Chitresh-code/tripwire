@@ -131,6 +131,10 @@ docker build -t tripwire-api .
 
 The image includes a `HEALTHCHECK` against `/v1/health`.
 
+### CI
+
+Every push/PR to `main` runs `pytest`, `ruff check`, `mypy --strict`, and `black --check` via GitHub Actions (`.github/workflows/ci.yml`).
+
 ## Project Structure
 
 ```text
