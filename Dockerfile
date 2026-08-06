@@ -32,6 +32,10 @@ ENV PATH="/app/.venv/bin:$PATH"
 # download (mypy, ruff, ...) on every container start. Already installed
 # everything needed at build time above; no reason to touch the network again.
 
+RUN useradd --create-home --shell /bin/false appuser \
+    && chown -R appuser:appuser /app
+USER appuser
+
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s CMD python -c \
     "import httpx; httpx.get('http://localhost:8000/v1/health').raise_for_status()"
