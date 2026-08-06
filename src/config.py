@@ -81,6 +81,15 @@ class SequenceSettings(_YamlSettings):
         return "sequence.yaml"
 
 
+class LabelDelaySettings(_YamlSettings):
+    min_days: float  # fastest a delayed label (e.g. a chargeback) could arrive
+    max_days: float  # slowest
+
+    @classmethod
+    def _yaml_filename(cls) -> str:
+        return "labels.yaml"
+
+
 class DriftSettings(_YamlSettings):
     moderate_threshold: float  # PSI: no significant change below this
     alert_threshold: float  # PSI: significant change at/above this, triggers a retrain

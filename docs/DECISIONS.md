@@ -232,3 +232,26 @@ Live serving (`src/serving/app.py`) *does* load both libraries in one long-runni
 The sequence model does not beat the GBT baseline — it doesn't beat the rules-only heuristic either, landing at chance level. Plausible contributing factor beyond the imbalance issue above: PaySim sequences are short (`configs/features.yaml`'s velocity comment already established repeat senders are rare, 0.15% of accounts), so most training sequences are almost entirely zero-padding — there may simply not be enough real sequential signal in this dataset for a sequence model to find, independent of the training-imbalance problem. `models/registry/sequence_model.pt` is still wired into live serving (shadow-style, logged, never affecting decisions) per the user's explicit choice, so the plumbing is proven end-to-end even though this particular trained model isn't useful yet.
 
 **Latency impact (flagged per `AGENTs.md`):** 300-request benchmark with both GBT and GRU scoring live: p50 1.43ms, p95 1.78ms, p99 2.50ms, max 6.73ms — comparable to M6's explainability-only benchmark (p99 2.85ms), still ~40x under the PRD's 100ms budget.
+
+---
+
+## 2026-08-06 — M9: delayed-feedback training loop (FR12), additive, not wired into the default retrain path
+
+**Design (`src/pipelines/label_delay.py`):** `simulate_label_delay` attaches a `label_available_at` column — the transaction's timestamp plus a simulated 3-14 day arrival delay (`configs/labels.yaml`, per PRD §5). `labels_available_as_of(transactions, as_of)` returns only the rows whose label had genuinely arrived by `as_of` — the leakage-safe view for a retraining job running "now." Leakage test added (`tests/leakage/test_label_delay.py`) — the first file in the "Leakage Tests" category `docs/TESTING_STRATEGY.md` §3 named but never had a test for.
+
+**Stated simplification:** every transaction (fraud and legitimate alike) gets the same delay distribution. A real system would model "no chargeback within N days → treated as negative" separately from "chargeback arrived → positive" — a second axis of complexity not needed to demonstrate and test the leakage-safe join itself, which is what FR12 asks for. Flagged in the module docstring, not silently assumed.
+
+**Scoped before building, not guessed:** checked the real numbers first, since PaySim only spans ~31 days total and a 3-14 day delay is a large fraction of that. Result: as of the dataset's own last timestamp, 225,122 of 6,362,620 rows (3.5%) have a label that hasn't arrived yet. Not catastrophic — plenty of usable data remains — so this was worth building for real rather than a token demo.
+
+**Real comparison** (`scripts/demo_label_delay.py`, naive/leaky split vs. the delay-aware split, real GBT trained on each):
+
+| metric | naive (leaky) | delay-aware |
+|---|---|---|
+| roc_auc | 0.9010 | 0.9197 |
+| pr_auc | 0.1412 | 0.1710 |
+| precision_at_recall_50 | 0.0516 | 0.0352 |
+| precision_at_recall_80 | 0.0186 | 0.0119 |
+
+Mixed, reported as-is rather than picked apart for a winner: ranking quality (ROC-AUC, PR-AUC) improved on the delay-aware split; precision at fixed recall got worse. Plausible link, not proven: the excluded 3.5% is disproportionately the most recent ~2 weeks, the same window M4's real drift check flagged (`recipient_txn_count_recent` PSI=0.4766) — training/testing without that shifted tail changes the model's behavior in more than one direction at once, not simply "better" or "worse."
+
+**Why this stays additive** (`scripts/demo_label_delay.py`), rather than becoming `src/pipelines/train_and_register.py`'s `run_training()` default behavior (used by `scripts/train_baseline.py`'s initial training and `scripts/check_drift.py`'s automated retrains): not because the data loss was prohibitive — 3.5% is fine — but because changing that shared function's default behavior would retroactively make the already-registered checkpoints (`baseline_v1`/`v2`/`v3`, trained the leaky way) inconsistent with anything retrained after this change, and would change what the M4 evaluation gate is comparing against mid-flight. That's a bigger architectural call (rebuild the whole registry from scratch under the new join, or accept a mixed-provenance registry) than this milestone's scope — flagged here rather than decided silently, per `AGENTs.md`'s rule on label-handling/training-join changes.

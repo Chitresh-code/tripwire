@@ -71,7 +71,7 @@ Full diagram and component-level detail in [`docs/ARCHITECTURE.md`](docs/ARCHITE
 | M6 — Explainability | ✅ Done |
 | M7 — Rules-only baseline | ✅ Done |
 | M8 — Sequence model | ✅ Done (doesn't beat GBT — see `docs/DECISIONS.md`) |
-| M9 — Delayed-feedback loop | ⬜ Not started |
+| M9 — Delayed-feedback loop | ✅ Done (additive demo, not wired into the default retrain path — see `docs/DECISIONS.md`) |
 | M10 — Canary rollout | ⬜ Not started |
 
 ## Getting Started

@@ -1,0 +1,5 @@
+# Simulated delay between a transaction happening and its true fraud label
+# actually being known (e.g., a chargeback gets filed) — PRD §5 suggests
+# 3-14 days as realistic for this domain.
+min_days: 3.0
+max_days: 14.0
