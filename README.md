@@ -1,24 +1,23 @@
 # Tripwire
 
-A real-time transaction fraud & anomaly detection platform. A production-style ML system that scores financial transactions for fraud risk in real time, monitors itself for drift, and retrains automatically when its performance degrades. Built to demonstrate the full lifecycle of a fraud model in production — not just a trained classifier, but the ingestion, serving, monitoring, and retraining infrastructure around it.
+[![CI](https://github.com/Chitresh-code/tripwire/actions/workflows/ci.yml/badge.svg)](https://github.com/Chitresh-code/tripwire/actions/workflows/ci.yml)
 
-> 📄 See [`docs/PRD.md`](docs/PRD.md) for the full product requirements and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for system design details.
+A real-time transaction fraud detection platform: transaction events → shared feature pipeline → scoring API → cost-based decision, with automated drift detection and retraining behind it.
+
+> See [`docs/PRD.md`](docs/PRD.md) for the full product requirements and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for system design.
 
 ---
 
-## Why This Project Exists
+## What it does
 
-Most fraud-detection portfolio projects stop at "I trained a classifier on an imbalanced dataset." That's the easy 20%. The hard 80% — and the part that actually matters in production — is:
+- **Scores transactions in real time** via a FastAPI endpoint, with a p99 latency budget of 100ms.
+- **Uses one feature-definition layer for both training and serving**, checked by automated parity tests — the #1 cause of ML production failures is a feature computed one way offline and a different way online.
+- **Decides using a cost function**, not a fixed threshold — the cutoff is chosen from actual fraud-loss vs. customer-friction dollar costs (`src/serving/decision_engine.py`), not an arbitrary 0.5.
+- **Watches itself for drift** (PSI/KL on features and predictions) and can trigger an automated retrain, complete with a shadow-mode comparison before a new model takes over production traffic.
+- **Handles labels that arrive late** — fraud isn't confirmed the moment it happens, so the training pipeline can filter out rows whose labels weren't actually available yet at scoring time, avoiding leakage.
+- **Explains its own scores** — every response includes the top contributing features (LightGBM's exact SHAP-style attribution), not just a bare probability.
 
-- Making decisions in **under 100ms**
-- Keeping **online and offline features identical** (train/serve skew is the #1 cause of ML production failures)
-- Handling **labels that arrive weeks after the transaction**
-- Detecting when the model has gone stale **before** it silently costs the business money
-- Choosing a decision threshold based on **actual dollar cost**, not abstract accuracy metrics
-
-This repo implements all of the above end-to-end.
-
-## Architecture at a Glance
+## Architecture
 
 ```mermaid
 flowchart LR
@@ -36,30 +35,21 @@ flowchart LR
 
 Full diagram and component-level detail in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-## Key Features
-
-- ⚡ **Real-time scoring** — FastAPI service, p99 latency target < 100ms
-- 🔁 **Train/serve parity** — single feature-definition layer, validated by automated parity tests
-- 📉 **Drift detection** — PSI/KL-based monitoring on features and predictions, with automated retraining triggers
-- ⏳ **Delayed-feedback training loop** — correctly handles labels that arrive days/weeks after scoring, without leakage
-- 💰 **Cost-based decisioning** — thresholds chosen from a business cost function (fraud loss vs. customer friction), not a default cutoff
-- 📊 **Full observability** — Grafana dashboards for latency, throughput, prediction drift, and rolling precision/recall
-
-## Tech Stack
+## Tech stack
 
 | Layer | Technology |
 | ----- | ---------- |
-| Streaming | Kafka / Redpanda |
-| Feature store | Feast (or hand-rolled equivalent) |
-| Modeling | LightGBM / XGBoost (baseline), Transformer/GRU (sequence model) |
-| Serving | FastAPI + ONNX Runtime |
-| Orchestration | Airflow / Dagster / Prefect |
+| Streaming | Redpanda (Kafka API) |
+| Feature store | Hand-rolled (`src/features/`) — same code path for training and serving |
+| Modeling | LightGBM (baseline), GRU (sequence model) |
+| Serving | FastAPI |
 | Monitoring | Prometheus + Grafana |
+| Model storage | S3-compatible object storage (AWS S3 / R2 / MinIO), fetched at container startup |
 | Language | Python 3.11+ |
 
-## Project Status
+## Project status
 
-🚧 In active development. See milestones in [`docs/PRD.md`](docs/PRD.md#9-milestones).
+See milestones in [`docs/PRD.md`](docs/PRD.md#9-milestones).
 
 | Milestone | Status |
 | --------- | ------ |
@@ -70,45 +60,46 @@ Full diagram and component-level detail in [`docs/ARCHITECTURE.md`](docs/ARCHITE
 | M5 — Dashboard + write-up | ✅ Done |
 | M6 — Explainability | ✅ Done |
 | M7 — Rules-only baseline | ✅ Done |
-| M8 — Sequence model | ✅ Done (doesn't beat GBT — see `docs/DECISIONS.md`) |
-| M9 — Delayed-feedback loop | ✅ Done (additive demo, not wired into the default retrain path — see `docs/DECISIONS.md`) |
+| M8 — Sequence model | ✅ Done (doesn't beat the GBT baseline — see `docs/DECISIONS.md`) |
+| M9 — Delayed-feedback loop | ✅ Done (demo path, not wired into the default retrain — see `docs/DECISIONS.md`) |
 | M10 — Canary rollout | ⬜ Not started |
 
-## Getting Started
+## Getting started
 
 ### Prerequisites
 
 - Python 3.11+
-- Docker (for Kafka/Redpanda, Redis, Prometheus/Grafana locally)
-- `uv` (or `poetry`) for dependency management
+- [`uv`](https://docs.astral.sh/uv/) for dependency management
+- Docker, for the local Redpanda/Prometheus/Grafana stack (not required to run the API itself)
 
 ### Setup
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/Chitresh-code/tripwire.git
 cd tripwire
 uv sync                      # installs dependencies from pyproject.toml
 cp .env.example .env         # fill in local config
-docker compose up -d         # starts Kafka/Redpanda, Redis, Prometheus, Grafana
+docker compose up -d         # starts Redpanda, Prometheus, Grafana
 ```
 
-### Running Tests
+### Running the tests
 
 ```bash
-pytest tests/unit
+pytest                        # everything
 pytest tests/feature_parity   # critical: online/offline feature equivalence
-pytest tests/integration
+pytest tests/leakage          # label-availability / leakage checks
 ```
 
-### Running the Scoring Service Locally
+### Running the API locally
 
 ```bash
 uvicorn src.serving.app:app --reload --port 8000
+curl localhost:8000/v1/health
 ```
 
 ## Deployment
 
-The API is containerized (`Dockerfile`); the model registry is fetched from object storage at startup rather than baked into the image, so a retrain + `scripts/publish_model.py` + restart is enough to deploy a new model — no image rebuild.
+The API is containerized (`Dockerfile`, runs as a non-root user). The model registry is fetched from object storage at container startup rather than baked into the image, so publishing a new model + restarting the container is enough to deploy it — no image rebuild.
 
 ```bash
 docker build -t tripwire-api .
@@ -116,11 +107,11 @@ docker build -t tripwire-api .
 
 **Giving the container a model** — two options:
 
-1. **Local volume mount** (testing/demo — no object storage needed):
+1. **Local volume mount** (testing/demo, no object storage needed):
    ```bash
    docker run -p 8000:8000 -v $(pwd)/models/registry:/app/models/registry tripwire-api
    ```
-2. **Object storage** (real deployment): set `model_bucket` (and, for a non-AWS S3-compatible provider like Cloudflare R2 or MinIO, `endpoint_url`) in `configs/deployment.yaml`, run `uv run python scripts/publish_model.py` to upload your local registry, then run the container with AWS credentials in the environment:
+2. **Object storage** (real deployment): set `model_bucket` (and, for a non-AWS provider like Cloudflare R2 or MinIO, `endpoint_url`) in `configs/deployment.yaml`, run `uv run python scripts/publish_model.py` to upload your local registry, then start the container with credentials in the environment:
    ```bash
    docker run -p 8000:8000 \
      -e AWS_ACCESS_KEY_ID=... \
@@ -129,35 +120,27 @@ docker build -t tripwire-api .
    ```
    Credentials are never read from `configs/*.yaml` — only the bucket name and endpoint are. Leaving `model_bucket` empty (the default) disables object storage entirely; the container then expects a mounted `models/registry/` as in option 1.
 
-The image includes a `HEALTHCHECK` against `/v1/health`.
+The image includes a `HEALTHCHECK` against `/v1/health`. Every push/PR to `main` runs `pytest`, `ruff`, `mypy --strict`, and `black --check` via GitHub Actions.
 
-### CI
-
-Every push/PR to `main` runs `pytest`, `ruff check`, `mypy --strict`, and `black --check` via GitHub Actions (`.github/workflows/ci.yml`).
-
-## Project Structure
+## Project structure
 
 ```text
 tripwire/
 ├── src/
-│   ├── ingestion/       # Kafka producers/consumers, event schemas
+│   ├── ingestion/       # Kafka/Redpanda producers/consumers, event schemas
 │   ├── features/        # Shared online/offline feature definitions
-│   ├── models/          # Training code, model architectures
-│   ├── serving/          # FastAPI app, inference, decision engine
-│   ├── monitoring/       # Drift detection, metrics emitters
-│   └── pipelines/        # Training/retraining orchestration
+│   ├── models/          # Training code, model architectures, registry
+│   ├── serving/         # FastAPI app, inference, decision engine
+│   ├── monitoring/      # Drift detection, metrics
+│   └── pipelines/       # Training/retraining orchestration
 ├── tests/
 ├── configs/
 ├── docs/
-│   ├── PRD.md
-│   ├── ARCHITECTURE.md
-│   ├── CODING_STANDARDS.md
-│   └── TESTING_STRATEGY.md
 ├── notebooks/            # Exploration only, no production logic
 └── scripts/
 ```
 
-## Documentation Index
+## Documentation
 
 | Doc | Purpose |
 | --- | ------- |
@@ -166,8 +149,8 @@ tripwire/
 | [CODING_STANDARDS.md](docs/CODING_STANDARDS.md) | Style, testing, and review conventions |
 | [TESTING_STRATEGY.md](docs/TESTING_STRATEGY.md) | Test categories and what each protects against |
 | [API_SPEC.md](docs/API_SPEC.md) | Scoring API request/response contract |
+| [DECISIONS.md](docs/DECISIONS.md) | Log of real findings and tradeoffs made along the way |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute, branch/PR conventions |
-| [CLAUDE.md](CLAUDE.md) | Guidance for AI coding assistants working in this repo |
 
 ## Data
 
