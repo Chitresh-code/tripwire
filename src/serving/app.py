@@ -19,6 +19,11 @@ Sequence model (PRD FR5): if scripts/compare_baselines.py has saved one
 (models/registry/sequence_model.pt), every request is also scored by it and
 logged the same shadow-style way — it's a comparison model against the GBT
 baseline, never a candidate for production.
+
+Deployment: if configs/deployment.yaml's model_bucket is set, the registry
+is fetched from object storage once at startup (src/models/artifact_store.py)
+instead of requiring a model baked into the image. Local dev is unaffected —
+that config is empty by default, so this is a no-op unless someone deploys.
 """
 
 from __future__ import annotations
@@ -35,7 +40,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel
 
 from src.features import amount_features, sequence_features, type_features, velocity_features
-from src.models import registry
+from src.models import artifact_store, registry
 from src.models import sequence_model as sequence_model_module
 from src.models.baseline import FEATURE_COLUMNS
 from src.monitoring import metrics
@@ -88,6 +93,11 @@ def create_app(model: LGBMClassifier | None = None, version: str | None = None) 
     app.state.recipient_history = velocity_features.TransactionHistory(
         velocity_features._RECIPIENT_WINDOW
     )
+
+    @app.on_event("startup")
+    def sync_model_registry() -> None:
+        if model is None and artifact_store.is_enabled():
+            artifact_store.sync_registry()
 
     def get_production_model() -> tuple[LGBMClassifier, str]:
         if app.state.model is None:

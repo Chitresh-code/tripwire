@@ -1,0 +1,11 @@
+# model_bucket: object storage bucket the deployed API fetches its model
+# registry from at startup, instead of a model baked into the image. Empty
+# (the default) disables this entirely -- local dev keeps using
+# models/registry/ on disk exactly as before, nothing changes.
+model_bucket: ""
+
+# endpoint_url: only set this for an S3-compatible provider that isn't real
+# AWS S3 (e.g. Cloudflare R2, MinIO, Backblaze B2). Leave empty for AWS.
+# Credentials are never set here -- boto3's standard env vars
+# (AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY) or an IAM role, never committed.
+endpoint_url: ""

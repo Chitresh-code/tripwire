@@ -90,6 +90,15 @@ class LabelDelaySettings(_YamlSettings):
         return "labels.yaml"
 
 
+class DeploymentSettings(_YamlSettings):
+    model_bucket: str  # empty disables object-storage fetch entirely (local dev default)
+    endpoint_url: str  # empty = real AWS S3; set for R2/MinIO/other S3-compatible providers
+
+    @classmethod
+    def _yaml_filename(cls) -> str:
+        return "deployment.yaml"
+
+
 class DriftSettings(_YamlSettings):
     moderate_threshold: float  # PSI: no significant change below this
     alert_threshold: float  # PSI: significant change at/above this, triggers a retrain

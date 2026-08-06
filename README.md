@@ -106,6 +106,31 @@ pytest tests/integration
 uvicorn src.serving.app:app --reload --port 8000
 ```
 
+## Deployment
+
+The API is containerized (`Dockerfile`); the model registry is fetched from object storage at startup rather than baked into the image, so a retrain + `scripts/publish_model.py` + restart is enough to deploy a new model — no image rebuild.
+
+```bash
+docker build -t tripwire-api .
+```
+
+**Giving the container a model** — two options:
+
+1. **Local volume mount** (testing/demo — no object storage needed):
+   ```bash
+   docker run -p 8000:8000 -v $(pwd)/models/registry:/app/models/registry tripwire-api
+   ```
+2. **Object storage** (real deployment): set `model_bucket` (and, for a non-AWS S3-compatible provider like Cloudflare R2 or MinIO, `endpoint_url`) in `configs/deployment.yaml`, run `uv run python scripts/publish_model.py` to upload your local registry, then run the container with AWS credentials in the environment:
+   ```bash
+   docker run -p 8000:8000 \
+     -e AWS_ACCESS_KEY_ID=... \
+     -e AWS_SECRET_ACCESS_KEY=... \
+     tripwire-api
+   ```
+   Credentials are never read from `configs/*.yaml` — only the bucket name and endpoint are. Leaving `model_bucket` empty (the default) disables object storage entirely; the container then expects a mounted `models/registry/` as in option 1.
+
+The image includes a `HEALTHCHECK` against `/v1/health`.
+
 ## Project Structure
 
 ```text
