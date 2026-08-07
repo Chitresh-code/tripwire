@@ -47,23 +47,6 @@ Full diagram and component-level detail in [`docs/ARCHITECTURE.md`](docs/ARCHITE
 | Model storage | S3-compatible object storage (AWS S3 / R2 / MinIO), fetched at container startup |
 | Language | Python 3.11+ |
 
-## Project status
-
-See milestones in [`docs/PRD.md`](docs/PRD.md#9-milestones).
-
-| Milestone | Status |
-| --------- | ------ |
-| M1 — Offline baseline | ✅ Done |
-| M2 — Serving path | ✅ Done |
-| M3 — Streaming + shadow deploy | ✅ Done |
-| M4 — Drift + retraining loop | ✅ Done |
-| M5 — Dashboard + write-up | ✅ Done |
-| M6 — Explainability | ✅ Done |
-| M7 — Rules-only baseline | ✅ Done |
-| M8 — Sequence model | ✅ Done (doesn't beat the GBT baseline — see `docs/DECISIONS.md`) |
-| M9 — Delayed-feedback loop | ✅ Done (demo path, not wired into the default retrain — see `docs/DECISIONS.md`) |
-| M10 — Canary rollout | ⬜ Not started |
-
 ## Getting started
 
 ### Prerequisites

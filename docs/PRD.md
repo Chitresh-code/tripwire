@@ -98,29 +98,13 @@ This project builds a system that makes real-time fraud decisions, monitors its 
 | Baseline comparison                      | Rules-only heuristic vs. GBT vs. sequence model, reported side by side |
 
 
-## 9. Milestones
-
-1. **M1 — Offline baseline:** data pipeline + GBT model + offline evaluation report.
-2. **M2 — Serving path:** FastAPI scoring service, latency benchmarked, feature parity test passing.
-3. **M3 — Streaming + shadow deploy:** Kafka ingestion, shadow-mode comparison against baseline.
-4. **M4 — Drift + retraining loop:** synthetic drift injection, alerting, automated retrain triggered and validated.
-5. **M5 — Dashboard + write-up:** monitoring dashboard live, architecture doc, results write-up with cost-based threshold justification.
-
-M1–M5 are done (see `docs/DECISIONS.md`). The FRs below were defined in §6 but never scheduled into M1–M5; added here as their own milestones so the full PRD scope is tracked, not just what shipped first.
-
-6. **M6 — Explainability (FR7):** `/v1/score` returns top contributing features per decision (SHAP or similar), not just a probability.
-7. **M7 — Rules-only baseline (Goals §2, Evaluation Plan §8):** a simple heuristic scorer (no ML) as the comparison floor the Goals table promises ("beats a rules-only baseline by a defined margin") — currently only GBT-vs-GBT comparisons exist.
-8. **M8 — Sequence model (FR5):** a GRU/transformer over each account's recent transaction sequence, evaluated side by side with the GBT baseline — reported honestly per §10's risk note even if it doesn't win.
-9. **M9 — Delayed-feedback training loop (FR12):** simulate label arrival delay (§5) and join labels back to the original scoring-time feature snapshot, no leakage. Unblocks FR13's precision/recall dashboard panel, skipped in M5 for exactly this reason (see `docs/DECISIONS.md`, 2026-08-05).
-10. **M10 — Canary rollout (FR9):** progressive traffic ramp with auto-rollback. Deferred in M3 as needing real traffic-routing infrastructure beyond a single local process (see `docs/DECISIONS.md`) — may stay out of scope given §3's single-node non-goal; revisit once M6–M9 are done.
-
-## 10. Risks & Open Questions
+## 9. Risks & Open Questions
 
 - **Risk:** Public fraud datasets may not exhibit realistic drift — may need to hand-engineer synthetic drift scenarios (e.g., inject a new fraud pattern mid-stream) to properly demonstrate the detection loop.
 - **Risk:** Sequence model may not meaningfully beat GBT baseline on this dataset — acceptable outcome if honestly reported with analysis of why.
 - **Open question:** Whether to implement true delayed-feedback simulation with a message queue delay, or a simpler offline-simulated version — decide based on time budget, document tradeoff either way.
 
-## 11. Deliverables
+## 10. Deliverables
 
 - Architecture diagram (ingestion → feature store → serving → monitoring → retraining loop).
 - Latency/throughput benchmark table.
